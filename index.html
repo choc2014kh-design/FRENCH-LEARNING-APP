@@ -777,7 +777,28 @@ function showToast(msg) {
 }
 
 function showProgress() { goTo('stats'); }
-function showLessonsMenu() { goTo('lessons'); }
+function showLessonsMenu() { 
+  goTo('lessons'); 
+  const list = document.getElementById('lessons-list');
+  list.innerHTML = '';
+  LESSONS.forEach(lesson => {
+    const btn = document.createElement('div');
+    btn.className = "bg-indigo-50 hover:bg-indigo-100 cursor-pointer p-4 rounded-xl border border-indigo-100 transition flex justify-between items-center group";
+    btn.onclick = () => openLesson(lesson.id);
+    btn.innerHTML = `
+        <div><h3 class="font-bold text-indigo-900 text-lg group-hover:text-indigo-800">${lesson.title}</h3><p class="text-sm text-gray-600">${lesson.description}</p></div>
+        <span class="text-2xl text-indigo-300 group-hover:translate-x-1 transition">→</span>
+    `;
+    list.appendChild(btn);
+  });
+}
+
+function openLesson(id) {
+  const lesson = LESSONS.find(l => l.id === id);
+  if (!lesson) return;
+  goTo('lesson-content');
+  document.getElementById('lesson-body').innerHTML = lesson.content;
+}
 function escapeHtml(str) { return str ? String(str).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;') : ''; }
 function escapeAttr(str) { return str ? String(str).replace(/'/g,"\\'").replace(/"/g,'\\"') : ''; }
 function sanitizeId(str) { return String(str).replace(/[^a-zA-Z0-9]/g,'_'); }
