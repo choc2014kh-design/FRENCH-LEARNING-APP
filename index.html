@@ -6,6 +6,7 @@
   <meta name="robots" content="noindex, nofollow">
   <title>French Practice</title>
   <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <style>
     :root {
       --clr-bg: #f0f4ff;
@@ -266,6 +267,14 @@
 
 <script>
 // ===================================================================
+// SUPABASE CONFIGURATION
+// ===================================================================
+// TODO: Replace these with your actual Supabase project URL and anon key
+const supabaseUrl = 'https://your-project-url.supabase.co';
+const supabaseKey = 'your-anon-public-key';
+const supabase = supabase.createClient(supabaseUrl, supabaseKey);
+
+// ===================================================================
 // DATA
 // ===================================================================
 const BASE_VOCAB = [
@@ -370,6 +379,22 @@ function getStats() { try { return JSON.parse(localStorage.getItem(STORAGE_KEY) 
 function saveStats(s) { localStorage.setItem(STORAGE_KEY, JSON.stringify(s)); }
 function getUserVocab() { try { return JSON.parse(localStorage.getItem(USER_VOCAB_KEY) || '[]'); } catch { return []; } }
 function saveUserVocab(v) { localStorage.setItem(USER_VOCAB_KEY, JSON.stringify(v)); }
+
+async function saveWordToSupabase(wordObj) {
+  const { data, error } = await supabase
+    .from('user_vocabulary')
+    .insert([
+      { 
+        french: wordObj.french, 
+        lemma: wordObj.lemma, 
+        english: wordObj.english, 
+        word_type: wordObj.type.toLowerCase() 
+      }
+    ]);
+  
+  if (error) console.error("Error saving word:", error);
+  else showToast(`"${wordObj.french}" synced to cloud!`);
+}
 
 function addWordToVocab(entry) {
   const current = getUserVocab();
@@ -548,7 +573,7 @@ function renderAnalysis() {
           <div class="fr" style="color:${tc.color};white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${escapeHtml(w.french)}</div>
           <div class="en" style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${escapeHtml(w.english)}</div>
         </div>
-        <button class="add-btn" style="background:${tc.btnBg};color:white;" onclick="addWordFromSidebar(this,'${escapeAttr(w.french)}','${escapeAttr(w.english)}','${escapeAttr(deckType)}')">+</button>
+        <button class="add-btn" style="background:${tc.btnBg};color:white;" onclick="addWordFromSidebar(this,'${escapeAttr(w.french)}','${escapeAttr(w.english)}','${escapeAttr(w.lemma)}','${escapeAttr(deckType)}')">+</button>
       `;
       sidebar.appendChild(pill);
     });
@@ -562,12 +587,13 @@ function sidebarHighlight(word) {
   if (pill) { pill.style.outline = '2px solid #4f46e5'; pill.scrollIntoView({ behavior: 'smooth', block: 'nearest' }); }
 }
 
-function addWordFromSidebar(btn, french, english, deckType) {
-  const toAdd = { french: french, english: english, type: deckType };
+async function addWordFromSidebar(btn, french, english, lemma, deckType) {
+  const toAdd = { french: french, english: english, lemma: lemma, type: deckType };
   if (addWordToVocab(toAdd)) {
-    btn.textContent = '✓';
+    btn.textContent = '...';
     btn.disabled = true;
-    showToast(`"${french}" saved!`);
+    await saveWordToSupabase(toAdd);
+    btn.textContent = '✓';
   }
 }
 
