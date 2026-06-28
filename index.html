@@ -634,6 +634,12 @@ function loadNextCard() {
   document.getElementById('reveal-btn').classList.remove('hidden');
   document.getElementById('feedback-btns').classList.add('hidden');
 }
+function revealAnswer() { 
+  document.getElementById('flashcard').classList.add('flipped'); 
+  document.getElementById('reveal-btn').classList.add('hidden'); 
+  document.getElementById('feedback-btns').classList.remove('hidden'); 
+}
+
 function handleFeedback(isCorrect) { 
   document.getElementById('flashcard').classList.remove('flipped'); 
   updateWordStat(currentCard.french, isCorrect);
