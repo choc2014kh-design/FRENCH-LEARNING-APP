@@ -349,14 +349,19 @@ async function syncVocabFromSupabase() {
   const { data, error } = await supabaseClient.from('user_vocabulary').select('*');
   if (!error && data) {
     const vocab = data.map(row => ({
+      id: row.id,
       french: row.french,
       lemma: row.lemma || row.french,
       english: row.english,
-      type: row.word_type === 'verb' ? 'Verbs' : 
-            row.word_type === 'noun' ? 'Common Nouns' : 
-            row.word_type === 'adverb' ? 'Adverbs' : 'Adjectives'
+      type: row.word_type || 'adjective', // canonical lowercase: verb, noun, adverb, adjective
+      source: 'supabase'
     }));
-    saveUserVocab(vocab);
+    
+    // Merge with local instead of blind overwrite
+    let currentLocal = getUserVocab();
+    // Keep local words that haven't synced yet (no id), replace synced ones
+    const localUnsynced = currentLocal.filter(w => !w.id);
+    saveUserVocab([...vocab, ...localUnsynced]);
     isVocabSynced = true;
   }
 }
@@ -437,29 +442,36 @@ async function saveWordToSupabase(wordObj) {
         french: wordObj.french, 
         lemma: wordObj.lemma, 
         english: wordObj.english, 
-        word_type: wordObj.type.toLowerCase() 
+        word_type: wordObj.type 
       }
-    ]);
+    ]).select();
   
-  if (error) console.error("Error saving word:", error);
-  else showToast(`"${wordObj.french}" synced to cloud!`);
+  if (error) {
+    console.error("Error saving word:", error);
+    return null;
+  } else {
+    showToast(`"${wordObj.french}" synced to cloud!`);
+    return data[0].id; // Return the new UUID
+  }
 }
 
-async function deleteWordFromSupabase(french) {
+async function deleteWordFromSupabase(id, french) {
   if (!confirm(`Are you sure you want to delete "${french}" from your vocabulary?`)) return;
   
   // 1. Remove from local browser memory
   let current = getUserVocab();
-  current = current.filter(w => w.french.toLowerCase() !== french.toLowerCase());
+  current = current.filter(w => w.id !== id);
   saveUserVocab(current);
   
   // 2. Refresh the sidebar UI instantly
   renderSidebar();
   
-  // 3. Delete from Supabase cloud
-  const { error } = await supabaseClient.from('user_vocabulary').delete().eq('french', french);
-  if (error) console.error("Error deleting word:", error);
-  else showToast(`"${french}" removed!`);
+  // 3. Delete from Supabase cloud by ID, not string
+  if (id) {
+    const { error } = await supabaseClient.from('user_vocabulary').delete().eq('id', id);
+    if (error) console.error("Error deleting word:", error);
+    else showToast(`"${french}" removed!`);
+  }
 }
 
 function addWordToVocab(entry) {
@@ -469,8 +481,39 @@ function addWordToVocab(entry) {
   return false;
 }
 function getAllVocab() { return [...BASE_VOCAB, ...getUserVocab()]; }
-function updateWordStat(frenchWord, isCorrect) { if (!isCorrect) return; const s = getStats(); s[frenchWord] = (s[frenchWord] || 0) + 1; saveStats(s); }
-function resetStats() { if (confirm('Reset progress?')) { localStorage.removeItem(STORAGE_KEY); showProgress(); } }
+
+async function syncStatsFromSupabase() {
+  const { data, error } = await supabaseClient.from('user_stats').select('*');
+  if (!error && data) {
+    let s = {};
+    data.forEach(r => s[r.french] = r.mastery_score);
+    saveStats(s);
+  }
+}
+
+async function pushStatToSupabase(frenchWord, newScore) {
+  await supabaseClient.from('user_stats').upsert({ french: frenchWord, mastery_score: newScore });
+}
+
+function updateWordStat(frenchWord, isCorrect) { 
+  if (!isCorrect) return; 
+  const s = getStats(); 
+  const newScore = (s[frenchWord] || 0) + 1;
+  s[frenchWord] = newScore;
+  saveStats(s); 
+  pushStatToSupabase(frenchWord, newScore); 
+}
+
+function resetStats() { 
+  if (confirm('Reset progress?')) { 
+    localStorage.removeItem(STORAGE_KEY); 
+    // Delete from Supabase as well
+    supabaseClient.from('user_stats').delete().neq('french', 'none').then(() => {
+      showProgress(); 
+    });
+  } 
+}
+syncStatsFromSupabase();
 
 // ===================================================================
 // NAVIGATION
@@ -518,8 +561,11 @@ function createConjugation(verbObj, pronounIndex) {
       return { english: englishFront, french: `${frenchPronoun}${separator}${conjugatedForm}` };
   }
 
+  // Strictly enforce that it must end in -er to be conjugated by this engine
+  if (!verbObj.french.toLowerCase().endsWith('er')) return null;
+
   // Regular
-  const root = verbObj.french.toLowerCase().replace('er', '');
+  const root = verbObj.french.toLowerCase().replace(/er$/, '');
   let frenchPronoun = p.fr;
   let frenchStem = root;
   let frenchSuffix = p.suffix;
@@ -545,22 +591,23 @@ function startModule(type) {
   
   if (type === 'vocab') {
     title.textContent = "Vocabulary Flashcards";
-    currentDeck = getSmartDeck(w => w.type === 'Verbs' || w.type === 'Irregular Verbs', 20);
+    currentDeck = getSmartDeck(w => w.type === 'Verbs' || w.type === 'Irregular Verbs' || w.type === 'verb', 20);
     shuffle(currentDeck);
   }
   else if (type === 'nouns') {
     title.textContent = "Common Nouns";
-    currentDeck = getSmartDeck(w => w.type === 'Common Nouns', 20);
+    currentDeck = getSmartDeck(w => w.type === 'Common Nouns' || w.type === 'noun', 20);
     shuffle(currentDeck);
   }
   else if (type === 'conjugation') {
     title.textContent = "Conjugation Practice";
     currentDeck = [];
     const allPossibilities = [];
-    const verbsOnly = getAllVocab().filter(w => w.type === 'Verbs' || w.type === 'Irregular Verbs');
+    const verbsOnly = getAllVocab().filter(w => w.type === 'Verbs' || w.type === 'Irregular Verbs' || w.type === 'verb');
     verbsOnly.forEach(verb => {
         PRONOUNS.forEach((_, index) => {
-            allPossibilities.push(createConjugation(verb, index));
+            const conj = createConjugation(verb, index);
+            if (conj) allPossibilities.push(conj);
         });
     });
     shuffle(allPossibilities);
@@ -568,8 +615,7 @@ function startModule(type) {
   }
   else if (type === 'my-vocab') {
     title.textContent = "My Custom Words";
-    currentDeck = getSmartDeck(w => w.type !== 'Verbs' && w.type !== 'Irregular Verbs' && w.type !== 'Common Nouns', 20);
-    // fallback if no custom types
+    currentDeck = getSmartDeck(w => w.source === 'supabase', 20);
     if (currentDeck.length === 0) currentDeck = getSmartDeck(w => true, 20);
     shuffle(currentDeck);
   }
@@ -588,19 +634,44 @@ function loadNextCard() {
   document.getElementById('reveal-btn').classList.remove('hidden');
   document.getElementById('feedback-btns').classList.add('hidden');
 }
-function revealAnswer() { document.getElementById('flashcard').classList.add('flipped'); document.getElementById('reveal-btn').classList.add('hidden'); document.getElementById('feedback-btns').classList.remove('hidden'); }
-function handleFeedback(isCorrect) { document.getElementById('flashcard').classList.remove('flipped'); setTimeout(() => { if (isCorrect) currentDeck.shift(); else currentDeck.push(currentDeck.shift()); loadNextCard(); }, 550); }
-
+function handleFeedback(isCorrect) { 
+  document.getElementById('flashcard').classList.remove('flipped'); 
+  updateWordStat(currentCard.french, isCorrect);
+  setTimeout(() => { 
+    if (isCorrect) currentDeck.shift(); 
+    else currentDeck.push(currentDeck.shift()); 
+    loadNextCard(); 
+  }, 550); 
+}
 // ===================================================================
 // TEXT STUDIO (MANUAL HIGHLIGHTING & SESSIONS)
 // ===================================================================
 let textSessions = [];
 let currentSessionId = null;
 
-function loadSessionsFromStorage() {
+async function loadSessionsFromStorage() {
   try { textSessions = JSON.parse(localStorage.getItem('fls_text_sessions') || '[]'); } catch { textSessions = []; }
+  
   if (textSessions.length === 0) newSession();
   else { updateSessionDropdown(); loadSession(textSessions[0].id); }
+  
+  // Sync from cloud and override local
+  const { data, error } = await supabaseClient.from('text_sessions').select('*').order('updated_at', { ascending: false });
+  if (!error && data && data.length > 0) {
+    textSessions = data;
+    saveSessionsToStorage();
+    updateSessionDropdown();
+    if (!currentSessionId) loadSession(textSessions[0].id);
+  }
+}
+
+async function pushSessionToSupabase(sessionObj) {
+  await supabaseClient.from('text_sessions').upsert({
+    id: sessionObj.id,
+    title: sessionObj.title,
+    content: sessionObj.content,
+    updated_at: new Date().toISOString()
+  });
 }
 
 function saveSessionsToStorage() {
@@ -642,6 +713,8 @@ function handleEditorInput() {
   renderSidebar();
 }
 
+let sessionSaveTimeout = null;
+
 function saveCurrentSession() {
   if (!currentSessionId) return;
   const session = textSessions.find(s => s.id === currentSessionId);
@@ -653,6 +726,12 @@ function saveCurrentSession() {
     if (text.length > 0) session.title = text.substring(0, 20) + (text.length > 20 ? '...' : '');
     else session.title = `Text ${new Date().toLocaleDateString()}`;
     saveSessionsToStorage();
+    
+    // Debounce cloud save to prevent spamming database on every keystroke
+    clearTimeout(sessionSaveTimeout);
+    sessionSaveTimeout = setTimeout(() => {
+      pushSessionToSupabase(session);
+    }, 1500);
   }
 }
 
@@ -745,25 +824,67 @@ function renderSidebar() {
       box.style.cssText = `background:${tc.bg};border:1px solid ${tc.color}40;border-radius:8px;padding:10px;margin-bottom:8px;font-size:0.85rem;`;
       
       if (alreadySaved) {
-        box.innerHTML = `
-          <div style="display:flex;justify-content:space-between;align-items:center;">
-            <div style="color:${tc.color};font-weight:700;">${escapeHtml(w)}</div>
-            <div style="display:flex;gap:6px;align-items:center;">
-              <button onclick="deleteWordFromSupabase('${escapeAttr(w)}')" style="color:#ef4444;font-size:1.1rem;line-height:1;padding:0 4px;cursor:pointer;border:none;background:transparent;" title="Delete word">&times;</button>
-              <div style="font-size:0.75rem;color:#4b5563;background:white;padding:2px 6px;border-radius:4px;">Saved ✓</div>
-            </div>
-          </div>
-          <div style="color:#374151;margin-top:4px;">${escapeHtml(alreadySaved.english)}</div>
-        `;
+        // Safe DOM creation
+        const topRow = document.createElement('div');
+        topRow.style.cssText = 'display:flex;justify-content:space-between;align-items:center;';
+        
+        const label = document.createElement('div');
+        label.style.cssText = `color:${tc.color};font-weight:700;`;
+        label.textContent = w;
+        
+        const controls = document.createElement('div');
+        controls.style.cssText = 'display:flex;gap:6px;align-items:center;';
+        
+        const delBtn = document.createElement('button');
+        delBtn.style.cssText = 'color:#ef4444;font-size:1.1rem;line-height:1;padding:0 4px;cursor:pointer;border:none;background:transparent;';
+        delBtn.title = 'Delete word';
+        delBtn.textContent = '×';
+        delBtn.onclick = () => deleteWordFromSupabase(alreadySaved.id, w);
+        
+        const savedBadge = document.createElement('div');
+        savedBadge.style.cssText = 'font-size:0.75rem;color:#4b5563;background:white;padding:2px 6px;border-radius:4px;';
+        savedBadge.textContent = 'Saved ✓';
+        
+        controls.appendChild(delBtn);
+        controls.appendChild(savedBadge);
+        
+        topRow.appendChild(label);
+        topRow.appendChild(controls);
+        
+        const engText = document.createElement('div');
+        engText.style.cssText = 'color:#374151;margin-top:4px;';
+        engText.textContent = alreadySaved.english;
+        
+        box.appendChild(topRow);
+        box.appendChild(engText);
       } else {
-        const deckType = type === 'verb' ? 'Verbs' : type === 'noun' ? 'Common Nouns' : type === 'adverb' ? 'Adverbs' : 'Adjectives';
-        box.innerHTML = `
-          <div style="color:${tc.color};font-weight:700;margin-bottom:6px;">${escapeHtml(w)}</div>
-          <div style="display:flex;gap:6px;">
-            <input type="text" id="def-${sanitizeId(w)}" placeholder="English meaning..." class="flex-1 px-2 py-1.5 rounded-md border-none outline-none text-xs" style="background:white;">
-            <button class="add-btn" style="background:${tc.btnBg};color:white;padding:0 12px;border-radius:6px;font-weight:600;font-size:0.75rem;" onclick="addDefinitionFromSidebar(this, '${escapeAttr(w)}', '${escapeAttr(deckType)}', 'def-${sanitizeId(w)}')">Save</button>
-          </div>
-        `;
+        const deckType = type === 'verb' ? 'verb' : type === 'noun' ? 'noun' : type === 'adverb' ? 'adverb' : 'adjective';
+        
+        const label = document.createElement('div');
+        label.style.cssText = `color:${tc.color};font-weight:700;margin-bottom:6px;`;
+        label.textContent = w;
+        
+        const inputRow = document.createElement('div');
+        inputRow.style.cssText = 'display:flex;gap:6px;';
+        
+        const input = document.createElement('input');
+        input.type = 'text';
+        input.id = `def-${sanitizeId(w)}`;
+        input.placeholder = 'English meaning...';
+        input.className = 'flex-1 px-2 py-1.5 rounded-md border-none outline-none text-xs';
+        input.style.background = 'white';
+        
+        const addBtn = document.createElement('button');
+        addBtn.className = 'add-btn';
+        addBtn.style.cssText = `background:${tc.btnBg};color:white;padding:0 12px;border-radius:6px;font-weight:600;font-size:0.75rem;`;
+        addBtn.textContent = 'Save';
+        addBtn.onclick = () => addDefinitionFromSidebar(addBtn, w, deckType, input.id);
+        
+        inputRow.appendChild(input);
+        inputRow.appendChild(addBtn);
+        
+        box.appendChild(label);
+        box.appendChild(inputRow);
       }
       sidebar.appendChild(box);
     });
@@ -778,11 +899,23 @@ async function addDefinitionFromSidebar(btn, french, deckType, inputId) {
   const english = document.getElementById(inputId).value.trim();
   if (!english) return alert("Please enter the English translation.");
   
-  const toAdd = { french: french, english: english, lemma: french, type: deckType };
+  const toAdd = { french: french, english: english, lemma: french, type: deckType, source: 'supabase' };
+  
   if (addWordToVocab(toAdd)) {
     btn.textContent = '...';
     btn.disabled = true;
-    await saveWordToSupabase(toAdd);
+    
+    // Save to supabase and get the new ID
+    const newId = await saveWordToSupabase(toAdd);
+    
+    if (newId) {
+      // Update the local item with the real ID
+      let current = getUserVocab();
+      let savedItem = current.find(w => w.french === french);
+      if (savedItem) savedItem.id = newId;
+      saveUserVocab(current);
+    }
+    
     renderSidebar(); // Re-render to show as saved
   }
 }
@@ -796,7 +929,37 @@ function showToast(msg) {
   document.body.appendChild(t); setTimeout(() => t.remove(), 2000);
 }
 
-function showProgress() { goTo('stats'); }
+function showProgress() { 
+  goTo('stats'); 
+  const stats = getStats();
+  const bar = document.getElementById('stats-mastery-bar');
+  const list = document.getElementById('stats-list');
+  
+  const entries = Object.entries(stats).sort((a,b) => b[1] - a[1]); // Sort by highest mastery
+  
+  bar.innerHTML = `<p class="text-sm text-gray-500 mb-2">Total words mastered: <span class="font-bold text-indigo-600">${entries.length}</span></p>`;
+  
+  list.innerHTML = '';
+  if (entries.length === 0) {
+    list.innerHTML = '<p class="text-gray-400 text-center py-8">Complete flashcards to build your mastery stats!</p>';
+    return;
+  }
+  
+  entries.forEach(([word, score]) => {
+    const row = document.createElement('div');
+    row.className = "flex justify-between items-center border-b border-gray-100 pb-2";
+    row.innerHTML = `
+      <span class="font-semibold text-gray-700">${word}</span>
+      <div class="flex items-center gap-2">
+        <div class="h-2 w-24 bg-gray-100 rounded-full overflow-hidden">
+          <div class="h-full bg-indigo-500" style="width: ${Math.min(score * 10, 100)}%"></div>
+        </div>
+        <span class="text-xs text-gray-400 w-8 text-right">${score}</span>
+      </div>
+    `;
+    list.appendChild(row);
+  });
+}
 function showLessonsMenu() { 
   goTo('lessons'); 
   const list = document.getElementById('lessons-list');
