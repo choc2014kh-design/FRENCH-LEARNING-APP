@@ -1,0 +1,591 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+  <meta name="robots" content="noindex, nofollow">
+  <title>French Practice</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    :root {
+      --clr-bg: #f0f4ff;
+      --clr-surface: #ffffff;
+      --clr-primary: #4f46e5;
+      --clr-primary-dark: #3730a3;
+      --clr-verb: #7c3aed;
+      --clr-verb-bg: #ede9fe;
+      --clr-verb-border: #c4b5fd;
+      --clr-noun: #0369a1;
+      --clr-noun-bg: #e0f2fe;
+      --clr-noun-border: #7dd3fc;
+      --clr-adverb: #065f46;
+      --clr-adverb-bg: #d1fae5;
+      --clr-adverb-border: #6ee7b7;
+      --clr-adj: #92400e;
+      --clr-adj-bg: #fef3c7;
+      --clr-adj-border: #fcd34d;
+    }
+
+    * { box-sizing: border-box; }
+    body { background: var(--clr-bg); font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; margin: 0; padding: 0; }
+
+    /* Card flip */
+    .card-inner { transition: transform 0.55s cubic-bezier(.4,0,.2,1); transform-style: preserve-3d; position: relative; width: 100%; height: 100%; }
+    .card.flipped .card-inner { transform: rotateY(180deg); }
+    .card-face { -webkit-backface-visibility: hidden; backface-visibility: hidden; position: absolute; inset: 0; border-radius: 16px; display: flex; align-items: center; justify-content: center; padding: 1.5rem; }
+    .card-back-face { transform: rotateY(180deg); }
+
+    /* Lesson content */
+    .lesson-content h3 { font-weight: 700; font-size: 1.1rem; margin: 1.2rem 0 0.5rem; color: #1e1b4b; }
+    .lesson-content p { margin-bottom: 0.75rem; line-height: 1.65; color: #374151; }
+    .lesson-content ul, .lesson-content ol { margin-left: 1.5rem; margin-bottom: 1rem; color: #374151; }
+    .lesson-content li { margin-bottom: 0.35rem; }
+    .lesson-content strong { color: #4f46e5; }
+    .word-cols { columns: 2; column-gap: 2rem; }
+    @media(min-width:480px){ .word-cols { columns: 3; } }
+
+    /* Highlighted words */
+    .hl-verb   { background: var(--clr-verb-bg);   color: var(--clr-verb);   border: 1px solid var(--clr-verb-border);   border-radius: 4px; padding: 1px 5px; cursor: pointer; display: inline-block; }
+    .hl-noun   { background: var(--clr-noun-bg);   color: var(--clr-noun);   border: 1px solid var(--clr-noun-border);   border-radius: 4px; padding: 1px 5px; cursor: pointer; display: inline-block; }
+    .hl-adverb { background: var(--clr-adverb-bg); color: var(--clr-adverb); border: 1px solid var(--clr-adverb-border); border-radius: 4px; padding: 1px 5px; cursor: pointer; display: inline-block; }
+    .hl-adj    { background: var(--clr-adj-bg);    color: var(--clr-adj);    border: 1px solid var(--clr-adj-border);    border-radius: 4px; padding: 1px 5px; cursor: pointer; display: inline-block; }
+
+    /* Word pill in sidebar */
+    .word-pill { display: flex; align-items: center; justify-content: space-between; padding: 6px 10px; border-radius: 8px; margin-bottom: 6px; font-size: 0.8rem; gap: 8px; }
+    .word-pill .fr { font-weight: 600; }
+    .word-pill .en { color: #6b7280; font-size: 0.75rem; }
+    .word-pill .add-btn { font-size: 0.7rem; padding: 2px 8px; border-radius: 6px; border: none; cursor: pointer; white-space: nowrap; font-weight: 600; transition: opacity 0.2s; }
+    .word-pill .add-btn:hover { opacity: 0.8; }
+    .word-pill.added { opacity: 0.5; }
+
+    /* Textarea */
+    textarea { resize: none; outline: none; width: 100%; border: 1.5px solid #e5e7eb; border-radius: 12px; padding: 14px; font-size: 1rem; font-family: inherit; line-height: 1.6; transition: border-color 0.2s; }
+    textarea:focus { border-color: #4f46e5; }
+
+    /* Smooth hide/show */
+    .view { display: none; }
+    .view.active { display: flex; }
+
+    /* Spinner */
+    @keyframes spin { to { transform: rotate(360deg); } }
+    .spinner { width: 22px; height: 22px; border: 3px solid #c4b5fd; border-top-color: #7c3aed; border-radius: 50%; animation: spin 0.7s linear infinite; display: inline-block; vertical-align: middle; margin-right: 8px; }
+
+    /* Mobile tweaks */
+    @media(max-width: 640px) {
+      .analyser-layout { flex-direction: column !important; }
+      .sidebar-panel { max-height: 280px; overflow-y: auto; }
+    }
+
+    /* Tooltip */
+    .tooltip { position: relative; }
+    .tooltip:hover::after { content: attr(data-tip); position: absolute; bottom: 125%; left: 50%; transform: translateX(-50%); background: #1e1b4b; color: white; padding: 4px 8px; border-radius: 6px; font-size: 0.72rem; white-space: nowrap; pointer-events: none; z-index: 99; }
+
+    /* Nav pill */
+    .nav-btn { padding: 8px 16px; border-radius: 999px; font-size: 0.85rem; font-weight: 600; border: 2px solid transparent; cursor: pointer; transition: all 0.18s; }
+    .nav-btn.active { background: #4f46e5; color: white; }
+    .nav-btn:not(.active) { background: white; color: #374151; border-color: #e5e7eb; }
+    .nav-btn:not(.active):hover { border-color: #4f46e5; color: #4f46e5; }
+  </style>
+</head>
+<body>
+
+<div class="min-h-screen flex flex-col" style="max-width:900px;margin:0 auto;padding:1rem;">
+
+  <!-- TOP NAV -->
+  <nav class="flex gap-2 flex-wrap mb-4 justify-center">
+    <button class="nav-btn active" onclick="goTo('dashboard')">🏠 Home</button>
+    <button class="nav-btn" onclick="goTo('analyser')">✍️ Text Analyser</button>
+    <button class="nav-btn" onclick="showProgress()">📊 Stats</button>
+    <button class="nav-btn" onclick="showLessonsMenu()">🎓 Lessons</button>
+  </nav>
+
+  <!-- ======= DASHBOARD ======= -->
+  <div id="view-dashboard" class="view active flex-col gap-4">
+    <div class="bg-white rounded-2xl shadow-sm p-6 text-center">
+      <h1 class="text-2xl font-bold text-indigo-900 mb-1">French Practice</h1>
+      <p class="text-gray-500 text-sm">Choose a module to begin</p>
+    </div>
+    <div class="grid grid-cols-2 gap-3 sm:grid-cols-3">
+      <button onclick="startModule('vocab')" class="bg-indigo-600 hover:bg-indigo-700 text-white p-5 rounded-2xl shadow flex flex-col items-center gap-2 transition">
+        <span class="text-3xl">📖</span>
+        <span class="font-bold">Verbs</span>
+        <span class="text-xs opacity-80">Flashcards</span>
+      </button>
+      <button onclick="startModule('nouns')" class="bg-teal-600 hover:bg-teal-700 text-white p-5 rounded-2xl shadow flex flex-col items-center gap-2 transition">
+        <span class="text-3xl">🏙️</span>
+        <span class="font-bold">Nouns</span>
+        <span class="text-xs opacity-80">Top 100</span>
+      </button>
+      <button onclick="startModule('conjugation')" class="bg-emerald-600 hover:bg-emerald-700 text-white p-5 rounded-2xl shadow flex flex-col items-center gap-2 transition">
+        <span class="text-3xl">🗣️</span>
+        <span class="font-bold">Conjugation</span>
+        <span class="text-xs opacity-80">Trainer</span>
+      </button>
+      <button onclick="startModule('my-vocab')" class="bg-rose-500 hover:bg-rose-600 text-white p-5 rounded-2xl shadow flex flex-col items-center gap-2 transition">
+        <span class="text-3xl">⭐</span>
+        <span class="font-bold">My Words</span>
+        <span class="text-xs opacity-80">From analyser</span>
+      </button>
+      <button onclick="goTo('analyser')" class="bg-violet-600 hover:bg-violet-700 text-white p-5 rounded-2xl shadow flex flex-col items-center gap-2 transition">
+        <span class="text-3xl">✍️</span>
+        <span class="font-bold">Analyser</span>
+        <span class="text-xs opacity-80">Highlight words</span>
+      </button>
+      <button onclick="showProgress()" class="bg-amber-500 hover:bg-amber-600 text-white p-5 rounded-2xl shadow flex flex-col items-center gap-2 transition">
+        <span class="text-3xl">📊</span>
+        <span class="font-bold">My Stats</span>
+        <span class="text-xs opacity-80">Progress</span>
+      </button>
+    </div>
+  </div>
+
+  <!-- ======= QUIZ ======= -->
+  <div id="view-quiz" class="view flex-col" style="display:none;">
+    <div class="bg-white rounded-2xl shadow-sm p-5 flex flex-col gap-4 min-h-screen-inner">
+      <div class="flex justify-between items-center">
+        <button onclick="goTo('dashboard')" class="text-gray-400 hover:text-gray-600 text-sm font-semibold">← Menu</button>
+        <span id="q-counter" class="text-gray-500 text-sm font-medium">Card 1 of 20</span>
+      </div>
+      <h2 id="q-title" class="text-lg font-bold text-gray-800 text-center">Module</h2>
+
+      <!-- Card -->
+      <div style="flex:1;min-height:220px;position:relative;">
+        <div id="flashcard" class="card" style="width:100%;height:220px;cursor:pointer;" onclick="if(!this.classList.contains('flipped')) revealAnswer()">
+          <div class="card-inner">
+            <div class="card-face" style="background:#4f46e5;">
+              <p id="card-front-text" class="text-3xl font-bold text-white text-center"></p>
+            </div>
+            <div class="card-face card-back-face" style="background:#059669;">
+              <p id="card-back-text" class="text-3xl font-bold text-white text-center"></p>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Controls -->
+      <div>
+        <button id="reveal-btn" onclick="revealAnswer()" class="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-3 rounded-xl text-lg transition">Reveal Answer</button>
+        <div id="feedback-btns" class="hidden grid grid-cols-2 gap-3">
+          <button onclick="handleFeedback(false)" class="bg-rose-500 hover:bg-rose-600 text-white font-bold py-3 rounded-xl transition">
+            ✗ Wrong<br><span class="text-xs font-normal opacity-90">Show again</span>
+          </button>
+          <button onclick="handleFeedback(true)" class="bg-emerald-500 hover:bg-emerald-600 text-white font-bold py-3 rounded-xl transition">
+            ✓ Got it!<br><span class="text-xs font-normal opacity-90">+1 Mastery</span>
+          </button>
+        </div>
+      </div>
+
+      <!-- Complete -->
+      <div id="complete-msg" class="hidden absolute inset-0 bg-white rounded-2xl z-20 flex flex-col items-center justify-center p-8 text-center">
+        <div class="text-5xl mb-3">🎉</div>
+        <h2 class="text-2xl font-bold text-gray-800 mb-2">Session Complete!</h2>
+        <p class="text-gray-500 mb-6">Stats updated.</p>
+        <button onclick="goTo('dashboard')" class="w-full bg-gray-800 hover:bg-gray-900 text-white font-bold py-3 rounded-xl">Back to Menu</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ======= TEXT ANALYSER ======= -->
+  <div id="view-analyser" class="view flex-col gap-4" style="display:none;">
+    <div class="bg-white rounded-2xl shadow-sm p-5">
+      <h2 class="text-lg font-bold text-indigo-900 mb-1">Text Analyser (Wiktionary API Engine)</h2>
+      <p class="text-sm text-gray-500 mb-4">Type or paste French text. The live engine queries open semantic records to parse layout forms dynamically.</p>
+
+      <!-- Legend -->
+      <div class="flex gap-2 flex-wrap text-xs mb-3">
+        <span class="hl-verb px-2 py-1">verb</span>
+        <span class="hl-noun px-2 py-1">noun</span>
+        <span class="hl-adverb px-2 py-1">adverb</span>
+        <span class="hl-adj px-2 py-1">adjective</span>
+      </div>
+
+      <!-- Input -->
+      <textarea id="analyser-input" rows="5" placeholder="Je vais au marché avec ma mère ce matin..."></textarea>
+      <div class="flex gap-2 mt-3">
+        <button id="analyse-btn" onclick="runAnalysis()" class="flex-1 bg-violet-600 hover:bg-violet-700 text-white font-bold py-3 rounded-xl transition">
+          ✨ Live Analyse Text
+        </button>
+        <button onclick="clearAnalyser()" class="px-4 py-3 rounded-xl border border-gray-200 text-gray-500 hover:border-gray-300 transition text-sm">Clear</button>
+      </div>
+    </div>
+
+    <!-- Results split layout -->
+    <div id="analyser-results" class="hidden analyser-layout flex gap-4">
+      <div class="bg-white rounded-2xl shadow-sm p-5 flex-1">
+        <h3 class="font-bold text-gray-700 text-sm mb-3 uppercase tracking-wide">Highlighted text</h3>
+        <div id="highlighted-text" class="text-base leading-loose text-gray-800"></div>
+      </div>
+      <div class="bg-white rounded-2xl shadow-sm p-5 sidebar-panel" style="width:240px;min-width:200px;">
+        <h3 class="font-bold text-gray-700 text-sm mb-1 uppercase tracking-wide">Found words</h3>
+        <p class="text-xs text-gray-400 mb-3">Tap cross button to save matching structures</p>
+        <div id="word-sidebar"></div>
+      </div>
+    </div>
+
+    <!-- Loading -->
+    <div id="analyser-loading" class="hidden bg-white rounded-2xl shadow-sm p-5 text-center text-violet-600">
+      <span class="spinner"></span> Querying Open Wiktionary Databases...
+    </div>
+
+    <!-- Error -->
+    <div id="analyser-error" class="hidden bg-rose-50 border border-rose-200 rounded-2xl p-4 text-rose-700 text-sm"></div>
+  </div>
+
+  <!-- ======= STATS ======= -->
+  <div id="view-stats" class="view flex-col gap-4" style="display:none;">
+    <div class="bg-white rounded-2xl shadow-sm p-5">
+      <div class="flex justify-between items-center mb-4">
+        <h2 class="text-lg font-bold text-indigo-900">My Progress</h2>
+        <button onclick="resetStats()" class="text-xs text-red-400 hover:text-red-600 underline">Reset all</button>
+      </div>
+      <div id="stats-mastery-bar" class="mb-4"></div>
+      <div id="stats-list" class="space-y-5"></div>
+    </div>
+  </div>
+
+  <!-- ======= LESSONS MENU ======= -->
+  <div id="view-lessons" class="view flex-col gap-3" style="display:none;">
+    <div class="bg-white rounded-2xl shadow-sm p-5">
+      <h2 class="text-lg font-bold text-indigo-900 mb-4">Lessons</h2>
+      <div id="lessons-list" class="space-y-3"></div>
+    </div>
+  </div>
+
+  <!-- ======= LESSON CONTENT ======= -->
+  <div id="view-lesson-content" class="view flex-col gap-4" style="display:none;">
+    <div class="bg-white rounded-2xl shadow-sm p-5">
+      <button onclick="showLessonsMenu()" class="text-sm text-gray-400 hover:text-gray-600 font-semibold mb-4 block">← Back to Lessons</button>
+      <div id="lesson-body" class="lesson-content"></div>
+      <div class="mt-6 text-center">
+        <button onclick="showLessonsMenu()" class="bg-gray-800 text-white px-8 py-2.5 rounded-xl hover:bg-gray-900 transition font-semibold">Done</button>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<script>
+// ===================================================================
+// DATA
+// ===================================================================
+const BASE_VOCAB = [
+  { english:'To speak', french:'Parler', type:'Verbs' },
+  { english:'To sing', french:'Chanter', type:'Verbs' },
+  { english:'To listen', french:'Écouter', type:'Verbs' },
+  { english:'To kiss', french:'Embrasser', type:'Verbs' },
+  { english:'To prefer', french:'Préférer', type:'Verbs' },
+  { english:'To like / love', french:'Aimer', type:'Verbs' },
+  { english:'To hope', french:'Espérer', type:'Verbs' },
+  { english:'To dream', french:'Rêver', type:'Verbs' },
+  { english:'To think', french:'Penser', type:'Verbs' },
+  { english:'To watch', french:'Regarder', type:'Verbs' },
+  { english:'To walk', french:'Marcher', type:'Verbs' },
+  { english:'To dance', french:'Danser', type:'Verbs' },
+  { english:'To work', french:'Travailler', type:'Verbs' },
+  { english:'To play', french:'Jouer', type:'Verbs' },
+  { english:'To eat', french:'Manger', type:'Verbs' },
+  { english:'To cook', french:'Cuisiner', type:'Verbs' },
+  { english:'To read', french:'Lire', type:'Verbs' },
+  { english:'To write', french:'Écrire', type:'Verbs' },
+  { english:'To come', french:'Venir', type:'Verbs' },
+  { english:'To take', french:'Prendre', type:'Verbs' },
+  { english:'To be', french:'Être', type:'Irregular Verbs' },
+  { english:'To have', french:'Avoir', type:'Irregular Verbs' },
+  { english:'To go', french:'Aller', type:'Irregular Verbs' },
+  { english:'To do / make', french:'Faire', type:'Irregular Verbs' },
+  { english:'To want', french:'Vouloir', type:'Irregular Verbs' },
+  { english:'To be able to', french:'Pouvoir', type:'Irregular Verbs' },
+  { english:'To know', french:'Savoir', type:'Irregular Verbs' },
+  { english:'The time', french:'Le temps', type:'Common Nouns' },
+  { english:'The year', french:"L'année", type:'Common Nouns' },
+  { english:'The people', french:'Les gens', type:'Common Nouns' },
+  { english:'The way', french:'La façon', type:'Common Nouns' },
+  { english:'The day', french:'Le jour', type:'Common Nouns' },
+  { english:'The thing', french:'La chose', type:'Common Nouns' },
+  { english:'The man', french:"L'homme", type:'Common Nouns' },
+  { english:'The world', french:'Le monde', type:'Common Nouns' },
+  { english:'The life', french:'La vie', type:'Common Nouns' },
+  { english:'The hand', french:'La main', type:'Common Nouns' },
+  { english:'The part', french:'La partie', type:'Common Nouns' },
+  { english:'The child', french:"L'enfant", type:'Common Nouns' },
+  { english:'The eye', french:"L'œil", type:'Common Nouns' },
+  { english:'The woman', french:'La femme', type:'Common Nouns' },
+  { english:'The place', french:"L'endroit", type:'Common Nouns' },
+  { english:'The work', french:'Le travail', type:'Common Nouns' },
+  { english:'The week', french:'La semaine', type:'Common Nouns' },
+  { english:'The case', french:'Le cas', type:'Common Nouns' },
+  { english:'The point', french:'Le point', type:'Common Nouns' },
+  { english:'The government', french:'Le gouvernement', type:'Common Nouns' },
+  { english:'The company', french:"L'entreprise", type:'Common Nouns' },
+  { english:'The number', french:'Le nombre', type:'Common Nouns' },
+  { english:'The group', french:'Le groupe', type:'Common Nouns' },
+  { english:'The problem', french:'Le problème', type:'Common Nouns' },
+  { english:'The fact', french:'Le fait', type:'Common Nouns' },
+  { english:'The house', french:'La maison', type:'Common Nouns' },
+  { english:'The car', french:'La voiture', type:'Common Nouns' },
+  { english:'The dog', french:'Le chien', type:'Common Nouns' },
+  { english:'The cat', french:'Le chat', type:'Common Nouns' },
+  { english:'The water', french:"L'eau", type:'Common Nouns' },
+  { english:'The room', french:'La chambre', type:'Common Nouns' },
+  { english:'The mother', french:'La mère', type:'Common Nouns' },
+  { english:'The father', french:'Le père', type:'Common Nouns' },
+  { english:'The country', french:'Le pays', type:'Common Nouns' },
+  { english:'The night', french:'La nuit', type:'Common Nouns' },
+  { english:'The story', french:"L'histoire", type:'Common Nouns' },
+  { english:'The money', french:"L'argent", type:'Common Nouns' },
+  { english:'The city', french:'La ville', type:'Common Nouns' },
+  { english:'The school', french:"L'école", type:'Common Nouns' },
+  { english:'The friend', french:"L'ami / L'amie", type:'Common Nouns' },
+  { english:'The door', french:'La porte', type:'Common Nouns' },
+  { english:'The morning', french:'Le matin', type:'Common Nouns' },
+  { english:'The evening', french:'Le soir', type:'Common Nouns' },
+  { english:'The book', french:'Le livre', type:'Common Nouns' },
+  { english:'The word', french:'Le mot', type:'Common Nouns' },
+];
+
+const PRONOUNS = [
+  { en:'I', fr:'Je', suffix:'e' },
+  { en:'You', fr:'Tu', suffix:'es' },
+  { en:'He / She', fr:'Il/Elle', suffix:'e' },
+  { en:'We', fr:'Nous', suffix:'ons' },
+  { en:'You (all)', fr:'Vous', suffix:'ez' },
+  { en:'They', fr:'Ils/Elles', suffix:'ent' },
+];
+
+const LESSONS = [
+  {
+    id:1, title:'1st Group Verbs — Present Tense',
+    description:'Regular -er verb conjugation rules.',
+    content:`<h3>Le Présent de l'Indicatif</h3><p>The largest group of French verbs ends in <strong>-er</strong>.</p>`
+  }
+];
+
+// ===================================================================
+// STORAGE
+// ===================================================================
+const STORAGE_KEY  = 'fls_stats_v2';
+const USER_VOCAB_KEY = 'fls_user_vocab_v2';
+
+function getStats() { try { return JSON.parse(localStorage.getItem(STORAGE_KEY) || '{}'); } catch { return {}; } }
+function saveStats(s) { localStorage.setItem(STORAGE_KEY, JSON.stringify(s)); }
+function getUserVocab() { try { return JSON.parse(localStorage.getItem(USER_VOCAB_KEY) || '[]'); } catch { return []; } }
+function saveUserVocab(v) { localStorage.setItem(USER_VOCAB_KEY, JSON.stringify(v)); }
+
+function addWordToVocab(entry) {
+  const current = getUserVocab();
+  const exists = current.some(w => w.french.toLowerCase() === entry.french.toLowerCase());
+  if (!exists) { current.push(entry); saveUserVocab(current); return true; }
+  return false;
+}
+function getAllVocab() { return [...BASE_VOCAB, ...getUserVocab()]; }
+function updateWordStat(frenchWord, isCorrect) { if (!isCorrect) return; const s = getStats(); s[frenchWord] = (s[frenchWord] || 0) + 1; saveStats(s); }
+function resetStats() { if (confirm('Reset progress?')) { localStorage.removeItem(STORAGE_KEY); showProgress(); } }
+
+// ===================================================================
+// NAVIGATION
+// ===================================================================
+const VIEWS = ['dashboard','quiz','analyser','stats','lessons','lesson-content'];
+function goTo(id) {
+  VIEWS.forEach(v => { const el = document.getElementById('view-' + v); if (el) el.style.display = 'none'; });
+  const target = document.getElementById('view-' + id); if (target) target.style.display = 'flex';
+  document.querySelectorAll('.nav-btn').forEach(b => {
+    b.classList.remove('active');
+    if (id === 'dashboard' && b.textContent.includes('Home')) b.classList.add('active');
+    if (id === 'analyser' && b.textContent.includes('Analyser')) b.classList.add('active');
+  });
+}
+
+// ===================================================================
+// QUIZ ENGINE
+// ===================================================================
+let currentDeck = []; let initialDeckSize = 0; let currentCard = null; let currentModuleType = '';
+function shuffle(arr) { for (let i = arr.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [arr[i], arr[j]] = [arr[j], arr[i]]; } }
+function getSmartDeck(filterFn, size) {
+  const stats = getStats(); const candidates = getAllVocab().filter(filterFn);
+  const weighted = candidates.map(w => ({ word: w, sortKey: (stats[w.french] || 0) + Math.random() * 2 }));
+  weighted.sort((a, b) => a.sortKey - b.sortKey); return weighted.slice(0, size).map(x => x.word);
+}
+
+function startModule(type) {
+  currentModuleType = type; goTo('quiz');
+  document.getElementById('complete-msg').classList.add('hidden');
+  document.getElementById('complete-msg').style.display = 'none';
+  if (type === 'vocab') currentDeck = getSmartDeck(w => w.type === 'Verbs' || w.type === 'Irregular Verbs', 20);
+  else if (type === 'nouns') currentDeck = getSmartDeck(w => w.type === 'Common Nouns', 20);
+  shuffle(currentDeck); initialDeckSize = currentDeck.length; loadNextCard();
+}
+
+function loadNextCard() {
+  if (currentDeck.length === 0) { document.getElementById('complete-msg').classList.remove('hidden'); document.getElementById('complete-msg').style.display = 'flex'; return; }
+  document.getElementById('q-counter').textContent = `Card ${(initialDeckSize - currentDeck.length) + 1} of ${initialDeckSize}`;
+  currentCard = currentDeck[0];
+  document.getElementById('card-front-text').textContent = currentCard.english;
+  document.getElementById('card-back-text').textContent = currentCard.french;
+  document.getElementById('flashcard').classList.remove('flipped');
+  document.getElementById('reveal-btn').classList.remove('hidden');
+  document.getElementById('feedback-btns').classList.add('hidden');
+}
+function revealAnswer() { document.getElementById('flashcard').classList.add('flipped'); document.getElementById('reveal-btn').classList.add('hidden'); document.getElementById('feedback-btns').classList.remove('hidden'); }
+function handleFeedback(isCorrect) { document.getElementById('flashcard').classList.remove('flipped'); setTimeout(() => { if (isCorrect) currentDeck.shift(); else currentDeck.push(currentDeck.shift()); loadNextCard(); }, 550); }
+
+// ===================================================================
+// TEXT ANALYSER (FREE DICTIONARY API SYSTEM)
+// ===================================================================
+let analysisResult = null;
+
+async function runAnalysis() {
+  const input = document.getElementById('analyser-input').value.trim();
+  if (!input) { alert('Please type some French text.'); return; }
+
+  document.getElementById('analyser-results').classList.add('hidden');
+  document.getElementById('analyser-error').classList.add('hidden');
+  document.getElementById('analyser-loading').classList.remove('hidden');
+
+  const words = input.split(/([,.\s!?();:’'])/g);
+  const wordsFound = [];
+  let annotatedText = "";
+
+  // Async task parser queue loop
+  for (let token of words) {
+    const cleanWord = token.toLowerCase().trim();
+    const skipList = ['je','tu','il','elle','nous','vous','ils','elles','le','la','les','un','une','des','et','en','au','aux','avec','pour','dans'];
+
+    if (cleanWord.length > 1 && !skipList.includes(cleanWord) && /^[a-zA-Zàâäéèêëîïôöùûüç]+$/.test(cleanWord)) {
+      try {
+        // Querying free public API endpoint (using standard dev config endpoints)
+        const response = await fetch(`https://api.dictionaryapi.dev/api/v2/entries/fr/${cleanWord}`);
+        if (response.ok) {
+          const data = await response.json();
+          if (data && data[0]) {
+            const entry = data[0];
+            const partOfSpeech = entry.meanings[0]?.partOfSpeech || 'noun';
+            
+            // Map API types to match app layout targets
+            let normalizedType = 'noun';
+            if (partOfSpeech.includes('verb')) normalizedType = 'verb';
+            else if (partOfSpeech.includes('adverb')) normalizedType = 'adverb';
+            else if (partOfSpeech.includes('adj')) normalizedType = 'adjective';
+
+            // Fallback definitions lookup
+            const englishDef = entry.meanings[0]?.definitions[0]?.definition || "Vocabulary Word";
+
+            const wordObj = {
+              french: token,
+              lemma: entry.word || token,
+              english: englishDef,
+              type: normalizedType
+            };
+
+            wordsFound.push(wordObj);
+            annotatedText += `##${token}|${normalizedType}##`;
+            continue;
+          }
+        }
+      } catch (e) {
+        console.log("Word parsing bypass placeholder lookup fallback logic standard profile metrics triggered", e);
+      }
+    }
+    annotatedText += token;
+  }
+
+  analysisResult = { annotated_text: annotatedText, words: wordsFound };
+  document.getElementById('analyser-loading').classList.add('hidden');
+  renderAnalysis();
+}
+
+function renderAnalysis() {
+  if (!analysisResult) return;
+  let html = analysisResult.annotated_text;
+  const parts = html.split(/(##[^#]+##)/g);
+  let result = '';
+  
+  parts.forEach(part => {
+    const match = part.match(/^##(.+?)\|(.+?)##$/);
+    if (match) {
+      const word = match[1];
+      const type = match[2].toLowerCase();
+      const cls = type === 'verb' ? 'hl-verb' : type === 'noun' ? 'hl-noun' : type === 'adverb' ? 'hl-adverb' : 'hl-adj';
+      const wordObj = analysisResult.words.find(w => w.french === word);
+      const tip = wordObj ? `${wordObj.english}` : '';
+      result += `<span class="${cls} tooltip" data-tip="${tip}" onclick="sidebarHighlight('${word.replace(/'/g,"\\'")}')">${escapeHtml(word)}</span>`;
+    } else {
+      result += escapeHtml(part).replace(/\n/g, '<br>');
+    }
+  });
+  
+  document.getElementById('highlighted-text').innerHTML = result;
+  const sidebar = document.getElementById('word-sidebar');
+  sidebar.innerHTML = '';
+
+  const groups = { verb: [], noun: [], adverb: [], adjective: [] };
+  analysisResult.words.forEach(w => { if(groups[w.type]) groups[w.type].push(w); });
+
+  const typeLabels = { verb:'Verbs', noun:'Nouns', adverb:'Adverbs', adjective:'Adjectives' };
+  const typeColors = {
+    verb: { bg:'#ede9fe', color:'#7c3aed', btnBg:'#7c3aed' },
+    noun: { bg:'#e0f2fe', color:'#0369a1', btnBg:'#0369a1' },
+    adverb: { bg:'#d1fae5', color:'#065f46', btnBg:'#059669' },
+    adjective: { bg:'#fef3c7', color:'#92400e', btnBg:'#d97706' }
+  };
+
+  Object.entries(groups).forEach(([type, words]) => {
+    if (words.length === 0) return;
+    const tc = typeColors[type];
+    const header = document.createElement('p');
+    header.style.cssText = `font-size:0.7rem;font-weight:700;text-transform:uppercase;color:${tc.color};margin:10px 0 6px;`;
+    header.textContent = typeLabels[type];
+    sidebar.appendChild(header);
+
+    words.forEach(w => {
+      const pill = document.createElement('div');
+      pill.className = 'word-pill';
+      pill.style.background = tc.bg;
+      pill.id = 'pill-' + sanitizeId(w.french);
+      const deckType = type === 'verb' ? 'Verbs' : type === 'noun' ? 'Common Nouns' : type === 'adverb' ? 'Adverbs' : 'Adjectives';
+
+      pill.innerHTML = `
+        <div style="flex:1;min-width:0;">
+          <div class="fr" style="color:${tc.color};white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${escapeHtml(w.french)}</div>
+          <div class="en" style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${escapeHtml(w.english)}</div>
+        </div>
+        <button class="add-btn" style="background:${tc.btnBg};color:white;" onclick="addWordFromSidebar(this,'${escapeAttr(w.french)}','${escapeAttr(w.english)}','${escapeAttr(deckType)}')">+</button>
+      `;
+      sidebar.appendChild(pill);
+    });
+  });
+  document.getElementById('analyser-results').classList.remove('hidden');
+}
+
+function sidebarHighlight(word) {
+  document.querySelectorAll('.word-pill').forEach(p => p.style.outline = '');
+  const pill = document.getElementById('pill-' + sanitizeId(word));
+  if (pill) { pill.style.outline = '2px solid #4f46e5'; pill.scrollIntoView({ behavior: 'smooth', block: 'nearest' }); }
+}
+
+function addWordFromSidebar(btn, french, english, deckType) {
+  const toAdd = { french: french, english: english, type: deckType };
+  if (addWordToVocab(toAdd)) {
+    btn.textContent = '✓';
+    btn.disabled = true;
+    showToast(`"${french}" saved!`);
+  }
+}
+
+function clearAnalyser() { document.getElementById('analyser-input').value = ''; document.getElementById('analyser-results').classList.add('hidden'); analysisResult = null; }
+function showToast(msg) {
+  const existing = document.getElementById('toast'); if (existing) existing.remove();
+  const t = document.createElement('div'); t.id = 'toast'; t.textContent = msg;
+  t.style.cssText = 'position:fixed;bottom:24px;left:50%;transform:translateX(-50%);background:#1e1b4b;color:white;padding:10px 20px;border-radius:999px;font-size:0.85rem;font-weight:600;z-index:1000;';
+  document.body.appendChild(t); setTimeout(() => t.remove(), 2000);
+}
+
+function showProgress() { goTo('stats'); }
+function showLessonsMenu() { goTo('lessons'); }
+function escapeHtml(str) { return str ? String(str).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;') : ''; }
+function escapeAttr(str) { return str ? String(str).replace(/'/g,"\\'").replace(/"/g,'\\"') : ''; }
+function sanitizeId(str) { return String(str).replace(/[^a-zA-Z0-9]/g,'_'); }
+
+goTo('dashboard');
+</script>
+</body>
+</html>
