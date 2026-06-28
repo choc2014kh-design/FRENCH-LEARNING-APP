@@ -272,7 +272,7 @@
 // TODO: Replace these with your actual Supabase project URL and anon key
 const supabaseUrl = 'https://your-project-url.supabase.co';
 const supabaseKey = 'your-anon-public-key';
-const supabase = supabase.createClient(supabaseUrl, supabaseKey);
+const supabaseClient = supabase.createClient(supabaseUrl, supabaseKey);
 
 // ===================================================================
 // DATA
@@ -381,7 +381,7 @@ function getUserVocab() { try { return JSON.parse(localStorage.getItem(USER_VOCA
 function saveUserVocab(v) { localStorage.setItem(USER_VOCAB_KEY, JSON.stringify(v)); }
 
 async function saveWordToSupabase(wordObj) {
-  const { data, error } = await supabase
+  const { data, error } = await supabaseClient
     .from('user_vocabulary')
     .insert([
       { 
