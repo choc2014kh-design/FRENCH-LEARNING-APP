@@ -59,9 +59,10 @@
     .word-pill .add-btn:hover { opacity: 0.8; }
     .word-pill.added { opacity: 0.5; }
 
-    /* Textarea */
+    /* Textarea & Editor */
     textarea { resize: none; outline: none; width: 100%; border: 1.5px solid #e5e7eb; border-radius: 12px; padding: 14px; font-size: 1rem; font-family: inherit; line-height: 1.6; transition: border-color 0.2s; }
     textarea:focus { border-color: #4f46e5; }
+    [contenteditable=true]:empty:before { content: attr(placeholder); color: #9ca3af; pointer-events: none; display: block; }
 
     /* Smooth hide/show */
     .view { display: none; }
@@ -186,50 +187,41 @@
     </div>
   </div>
 
-  <!-- ======= TEXT ANALYSER ======= -->
-  <div id="view-analyser" class="view flex-col gap-4" style="display:none;">
-    <div class="bg-white rounded-2xl shadow-sm p-5">
-      <h2 class="text-lg font-bold text-indigo-900 mb-1">Text Analyser (Wiktionary API Engine)</h2>
-      <p class="text-sm text-gray-500 mb-4">Type or paste French text. The live engine queries open semantic records to parse layout forms dynamically.</p>
-
-      <!-- Legend -->
-      <div class="flex gap-2 flex-wrap text-xs mb-3">
-        <span class="hl-verb px-2 py-1">verb</span>
-        <span class="hl-noun px-2 py-1">noun</span>
-        <span class="hl-adverb px-2 py-1">adverb</span>
-        <span class="hl-adj px-2 py-1">adjective</span>
-      </div>
-
-      <!-- Input -->
-      <textarea id="analyser-input" rows="5" placeholder="Je vais au marché avec ma mère ce matin..."></textarea>
-      <div class="flex gap-2 mt-3">
-        <button id="analyse-btn" onclick="runAnalysis()" class="flex-1 bg-violet-600 hover:bg-violet-700 text-white font-bold py-3 rounded-xl transition">
-          ✨ Live Analyse Text
-        </button>
-        <button onclick="clearAnalyser()" class="px-4 py-3 rounded-xl border border-gray-200 text-gray-500 hover:border-gray-300 transition text-sm">Clear</button>
-      </div>
+  <!-- ======= TEXT STUDIO ======= -->
+  <div id="view-analyser" class="view flex-col gap-4" style="display:none; flex: 1;">
+    <div class="flex justify-between items-center bg-white rounded-2xl shadow-sm p-4">
+        <div>
+            <h2 class="text-lg font-bold text-indigo-900 mb-1">Text Studio</h2>
+            <p class="text-sm text-gray-500">Highlight text and assign categories manually.</p>
+        </div>
+        <div class="flex gap-2 items-center">
+            <select id="session-select" class="border border-gray-200 rounded-xl px-3 py-2 text-sm text-gray-700 outline-none focus:border-indigo-500" onchange="loadSession(this.value)"></select>
+            <button onclick="newSession()" class="bg-indigo-50 hover:bg-indigo-100 text-indigo-700 font-semibold px-3 py-2 rounded-xl text-sm transition">New text</button>
+        </div>
     </div>
 
     <!-- Results split layout -->
-    <div id="analyser-results" class="hidden analyser-layout flex gap-4">
-      <div class="bg-white rounded-2xl shadow-sm p-5 flex-1">
-        <h3 class="font-bold text-gray-700 text-sm mb-3 uppercase tracking-wide">Highlighted text</h3>
-        <div id="highlighted-text" class="text-base leading-loose text-gray-800"></div>
+    <div class="analyser-layout flex gap-4" style="flex: 1;">
+      <!-- Left Pane: Editor -->
+      <div class="bg-white rounded-2xl shadow-sm flex flex-col flex-1" style="min-height: 400px;">
+        <div class="p-3 border-b border-gray-100 flex gap-2 flex-wrap items-center">
+          <button onclick="highlightSelection('verb', 'hl-verb')" class="hl-verb px-3 py-1 font-semibold text-xs transition hover:opacity-80">Verb</button>
+          <button onclick="highlightSelection('noun', 'hl-noun')" class="hl-noun px-3 py-1 font-semibold text-xs transition hover:opacity-80">Noun</button>
+          <button onclick="highlightSelection('adverb', 'hl-adverb')" class="hl-adverb px-3 py-1 font-semibold text-xs transition hover:opacity-80">Adverb</button>
+          <button onclick="highlightSelection('adjective', 'hl-adj')" class="hl-adj px-3 py-1 font-semibold text-xs transition hover:opacity-80">Adjective</button>
+          <div style="flex:1;"></div>
+          <button onclick="clearHighlights()" class="text-xs text-gray-400 hover:text-red-500 transition">Clear highlights</button>
+        </div>
+        <div id="analyser-editor" class="p-5 flex-1 outline-none text-gray-800 leading-loose text-lg" contenteditable="true" oninput="handleEditorInput()" onmouseup="checkSelection()" onkeyup="checkSelection()" placeholder="Start typing or paste French text here..."></div>
       </div>
-      <div class="bg-white rounded-2xl shadow-sm p-5 sidebar-panel" style="width:240px;min-width:200px;">
-        <h3 class="font-bold text-gray-700 text-sm mb-1 uppercase tracking-wide">Found words</h3>
-        <p class="text-xs text-gray-400 mb-3">Tap cross button to save matching structures</p>
-        <div id="word-sidebar"></div>
+
+      <!-- Right Pane: Dictionary -->
+      <div class="bg-white rounded-2xl shadow-sm p-5 sidebar-panel flex flex-col" style="width:340px;min-width:300px; max-height: calc(100vh - 150px); overflow-y: auto;">
+        <h3 class="font-bold text-gray-700 text-sm mb-1 uppercase tracking-wide">Highlighted Words</h3>
+        <p class="text-xs text-gray-400 mb-4">Define words to add them to quizzes.</p>
+        <div id="word-sidebar" class="flex-1 overflow-y-auto space-y-4 pr-1"></div>
       </div>
     </div>
-
-    <!-- Loading -->
-    <div id="analyser-loading" class="hidden bg-white rounded-2xl shadow-sm p-5 text-center text-violet-600">
-      <span class="spinner"></span> Querying Open Wiktionary Databases...
-    </div>
-
-    <!-- Error -->
-    <div id="analyser-error" class="hidden bg-rose-50 border border-rose-200 rounded-2xl p-4 text-rose-700 text-sm"></div>
   </div>
 
   <!-- ======= STATS ======= -->
@@ -277,80 +269,26 @@ const supabaseClient = supabase.createClient(supabaseUrl, supabaseKey);
 // ===================================================================
 // DATA
 // ===================================================================
-const BASE_VOCAB = [
-  { english:'To speak', french:'Parler', type:'Verbs' },
-  { english:'To sing', french:'Chanter', type:'Verbs' },
-  { english:'To listen', french:'Écouter', type:'Verbs' },
-  { english:'To kiss', french:'Embrasser', type:'Verbs' },
-  { english:'To prefer', french:'Préférer', type:'Verbs' },
-  { english:'To like / love', french:'Aimer', type:'Verbs' },
-  { english:'To hope', french:'Espérer', type:'Verbs' },
-  { english:'To dream', french:'Rêver', type:'Verbs' },
-  { english:'To think', french:'Penser', type:'Verbs' },
-  { english:'To watch', french:'Regarder', type:'Verbs' },
-  { english:'To walk', french:'Marcher', type:'Verbs' },
-  { english:'To dance', french:'Danser', type:'Verbs' },
-  { english:'To work', french:'Travailler', type:'Verbs' },
-  { english:'To play', french:'Jouer', type:'Verbs' },
-  { english:'To eat', french:'Manger', type:'Verbs' },
-  { english:'To cook', french:'Cuisiner', type:'Verbs' },
-  { english:'To read', french:'Lire', type:'Verbs' },
-  { english:'To write', french:'Écrire', type:'Verbs' },
-  { english:'To come', french:'Venir', type:'Verbs' },
-  { english:'To take', french:'Prendre', type:'Verbs' },
-  { english:'To be', french:'Être', type:'Irregular Verbs' },
-  { english:'To have', french:'Avoir', type:'Irregular Verbs' },
-  { english:'To go', french:'Aller', type:'Irregular Verbs' },
-  { english:'To do / make', french:'Faire', type:'Irregular Verbs' },
-  { english:'To want', french:'Vouloir', type:'Irregular Verbs' },
-  { english:'To be able to', french:'Pouvoir', type:'Irregular Verbs' },
-  { english:'To know', french:'Savoir', type:'Irregular Verbs' },
-  { english:'The time', french:'Le temps', type:'Common Nouns' },
-  { english:'The year', french:"L'année", type:'Common Nouns' },
-  { english:'The people', french:'Les gens', type:'Common Nouns' },
-  { english:'The way', french:'La façon', type:'Common Nouns' },
-  { english:'The day', french:'Le jour', type:'Common Nouns' },
-  { english:'The thing', french:'La chose', type:'Common Nouns' },
-  { english:'The man', french:"L'homme", type:'Common Nouns' },
-  { english:'The world', french:'Le monde', type:'Common Nouns' },
-  { english:'The life', french:'La vie', type:'Common Nouns' },
-  { english:'The hand', french:'La main', type:'Common Nouns' },
-  { english:'The part', french:'La partie', type:'Common Nouns' },
-  { english:'The child', french:"L'enfant", type:'Common Nouns' },
-  { english:'The eye', french:"L'œil", type:'Common Nouns' },
-  { english:'The woman', french:'La femme', type:'Common Nouns' },
-  { english:'The place', french:"L'endroit", type:'Common Nouns' },
-  { english:'The work', french:'Le travail', type:'Common Nouns' },
-  { english:'The week', french:'La semaine', type:'Common Nouns' },
-  { english:'The case', french:'Le cas', type:'Common Nouns' },
-  { english:'The point', french:'Le point', type:'Common Nouns' },
-  { english:'The government', french:'Le gouvernement', type:'Common Nouns' },
-  { english:'The company', french:"L'entreprise", type:'Common Nouns' },
-  { english:'The number', french:'Le nombre', type:'Common Nouns' },
-  { english:'The group', french:'Le groupe', type:'Common Nouns' },
-  { english:'The problem', french:'Le problème', type:'Common Nouns' },
-  { english:'The fact', french:'Le fait', type:'Common Nouns' },
-  { english:'The house', french:'La maison', type:'Common Nouns' },
-  { english:'The car', french:'La voiture', type:'Common Nouns' },
-  { english:'The dog', french:'Le chien', type:'Common Nouns' },
-  { english:'The cat', french:'Le chat', type:'Common Nouns' },
-  { english:'The water', french:"L'eau", type:'Common Nouns' },
-  { english:'The room', french:'La chambre', type:'Common Nouns' },
-  { english:'The mother', french:'La mère', type:'Common Nouns' },
-  { english:'The father', french:'Le père', type:'Common Nouns' },
-  { english:'The country', french:'Le pays', type:'Common Nouns' },
-  { english:'The night', french:'La nuit', type:'Common Nouns' },
-  { english:'The story', french:"L'histoire", type:'Common Nouns' },
-  { english:'The money', french:"L'argent", type:'Common Nouns' },
-  { english:'The city', french:'La ville', type:'Common Nouns' },
-  { english:'The school', french:"L'école", type:'Common Nouns' },
-  { english:'The friend', french:"L'ami / L'amie", type:'Common Nouns' },
-  { english:'The door', french:'La porte', type:'Common Nouns' },
-  { english:'The morning', french:'Le matin', type:'Common Nouns' },
-  { english:'The evening', french:'Le soir', type:'Common Nouns' },
-  { english:'The book', french:'Le livre', type:'Common Nouns' },
-  { english:'The word', french:'Le mot', type:'Common Nouns' },
-];
+const BASE_VOCAB = []; // Hardcoded list removed, replaced by Supabase
+let isVocabSynced = false;
+
+async function syncVocabFromSupabase() {
+  const { data, error } = await supabaseClient.from('user_vocabulary').select('*');
+  if (!error && data) {
+    const vocab = data.map(row => ({
+      french: row.french,
+      lemma: row.lemma || row.french,
+      english: row.english,
+      type: row.word_type === 'verb' ? 'Verbs' : 
+            row.word_type === 'noun' ? 'Common Nouns' : 
+            row.word_type === 'adverb' ? 'Adverbs' : 'Adjectives'
+    }));
+    saveUserVocab(vocab);
+    isVocabSynced = true;
+  }
+}
+syncVocabFromSupabase();
+
 
 const PRONOUNS = [
   { en:'I', fr:'Je', suffix:'e' },
@@ -454,96 +392,131 @@ function revealAnswer() { document.getElementById('flashcard').classList.add('fl
 function handleFeedback(isCorrect) { document.getElementById('flashcard').classList.remove('flipped'); setTimeout(() => { if (isCorrect) currentDeck.shift(); else currentDeck.push(currentDeck.shift()); loadNextCard(); }, 550); }
 
 // ===================================================================
-// TEXT ANALYSER (FREE DICTIONARY API SYSTEM)
+// TEXT STUDIO (MANUAL HIGHLIGHTING & SESSIONS)
 // ===================================================================
-let analysisResult = null;
+let textSessions = [];
+let currentSessionId = null;
 
-async function runAnalysis() {
-  const input = document.getElementById('analyser-input').value.trim();
-  if (!input) { alert('Please type some French text.'); return; }
-
-  document.getElementById('analyser-results').classList.add('hidden');
-  document.getElementById('analyser-error').classList.add('hidden');
-  document.getElementById('analyser-loading').classList.remove('hidden');
-
-  const words = input.split(/([,.\s!?();:’'])/g);
-  const wordsFound = [];
-  let annotatedText = "";
-
-  // Async task parser queue loop
-  for (let token of words) {
-    const cleanWord = token.toLowerCase().trim();
-    const skipList = ['je','tu','il','elle','nous','vous','ils','elles','le','la','les','un','une','des','et','en','au','aux','avec','pour','dans'];
-
-    if (cleanWord.length > 1 && !skipList.includes(cleanWord) && /^[a-zA-Zàâäéèêëîïôöùûüç]+$/.test(cleanWord)) {
-      try {
-        // Querying free public API endpoint (using standard dev config endpoints)
-        const response = await fetch(`https://api.dictionaryapi.dev/api/v2/entries/fr/${cleanWord}`);
-        if (response.ok) {
-          const data = await response.json();
-          if (data && data[0]) {
-            const entry = data[0];
-            const partOfSpeech = entry.meanings[0]?.partOfSpeech || 'noun';
-            
-            // Map API types to match app layout targets
-            let normalizedType = 'noun';
-            if (partOfSpeech.includes('verb')) normalizedType = 'verb';
-            else if (partOfSpeech.includes('adverb')) normalizedType = 'adverb';
-            else if (partOfSpeech.includes('adj')) normalizedType = 'adjective';
-
-            // Fallback definitions lookup
-            const englishDef = entry.meanings[0]?.definitions[0]?.definition || "Vocabulary Word";
-
-            const wordObj = {
-              french: token,
-              lemma: entry.word || token,
-              english: englishDef,
-              type: normalizedType
-            };
-
-            wordsFound.push(wordObj);
-            annotatedText += `##${token}|${normalizedType}##`;
-            continue;
-          }
-        }
-      } catch (e) {
-        console.log("Word parsing bypass placeholder lookup fallback logic standard profile metrics triggered", e);
-      }
-    }
-    annotatedText += token;
-  }
-
-  analysisResult = { annotated_text: annotatedText, words: wordsFound };
-  document.getElementById('analyser-loading').classList.add('hidden');
-  renderAnalysis();
+function loadSessionsFromStorage() {
+  try { textSessions = JSON.parse(localStorage.getItem('fls_text_sessions') || '[]'); } catch { textSessions = []; }
+  if (textSessions.length === 0) newSession();
+  else { updateSessionDropdown(); loadSession(textSessions[0].id); }
 }
 
-function renderAnalysis() {
-  if (!analysisResult) return;
-  let html = analysisResult.annotated_text;
-  const parts = html.split(/(##[^#]+##)/g);
-  let result = '';
-  
-  parts.forEach(part => {
-    const match = part.match(/^##(.+?)\|(.+?)##$/);
-    if (match) {
-      const word = match[1];
-      const type = match[2].toLowerCase();
-      const cls = type === 'verb' ? 'hl-verb' : type === 'noun' ? 'hl-noun' : type === 'adverb' ? 'hl-adverb' : 'hl-adj';
-      const wordObj = analysisResult.words.find(w => w.french === word);
-      const tip = wordObj ? `${wordObj.english}` : '';
-      result += `<span class="${cls} tooltip" data-tip="${tip}" onclick="sidebarHighlight('${word.replace(/'/g,"\\'")}')">${escapeHtml(word)}</span>`;
-    } else {
-      result += escapeHtml(part).replace(/\n/g, '<br>');
-    }
+function saveSessionsToStorage() {
+  localStorage.setItem('fls_text_sessions', JSON.stringify(textSessions));
+  updateSessionDropdown();
+}
+
+function newSession() {
+  const id = Date.now().toString();
+  const session = { id: id, title: `Text ${new Date().toLocaleDateString()}`, content: '' };
+  textSessions.unshift(session);
+  saveSessionsToStorage();
+  loadSession(id);
+}
+
+function updateSessionDropdown() {
+  const select = document.getElementById('session-select');
+  select.innerHTML = '';
+  textSessions.forEach(s => {
+    const opt = document.createElement('option');
+    opt.value = s.id; opt.textContent = s.title;
+    if (s.id === currentSessionId) opt.selected = true;
+    select.appendChild(opt);
   });
+}
+
+function loadSession(id) {
+  currentSessionId = id;
+  const session = textSessions.find(s => s.id === id);
+  if (session) {
+    document.getElementById('analyser-editor').innerHTML = session.content;
+    document.getElementById('session-select').value = id;
+    renderSidebar();
+  }
+}
+
+function handleEditorInput() {
+  saveCurrentSession();
+  renderSidebar();
+}
+
+function saveCurrentSession() {
+  if (!currentSessionId) return;
+  const session = textSessions.find(s => s.id === currentSessionId);
+  if (session) {
+    const editor = document.getElementById('analyser-editor');
+    session.content = editor.innerHTML;
+    // Auto-update title if it's default
+    const text = editor.innerText.trim();
+    if (text.length > 0) session.title = text.substring(0, 20) + (text.length > 20 ? '...' : '');
+    else session.title = `Text ${new Date().toLocaleDateString()}`;
+    saveSessionsToStorage();
+  }
+}
+
+function checkSelection() {
+  const sel = window.getSelection();
+  // Optional: can show tooltip or enable/disable highlight buttons based on selection
+}
+
+function highlightSelection(type, className) {
+  const sel = window.getSelection();
+  if (!sel.rangeCount || sel.isCollapsed) return;
+  const range = sel.getRangeAt(0);
+  const editor = document.getElementById('analyser-editor');
+  if (!editor.contains(range.commonAncestorContainer)) return;
+
+  const word = sel.toString().trim();
+  if (!word) return;
+
+  const span = document.createElement('span');
+  span.className = className;
+  span.setAttribute('data-word', word);
+  span.setAttribute('data-type', type);
+  span.textContent = word;
+
+  range.deleteContents();
+  range.insertNode(span);
   
-  document.getElementById('highlighted-text').innerHTML = result;
+  // Collapse selection after highlight
+  sel.removeAllRanges();
+  
+  saveCurrentSession();
+  renderSidebar();
+}
+
+function clearHighlights() {
+  if (!confirm('Clear all highlights from this text?')) return;
+  const editor = document.getElementById('analyser-editor');
+  const spans = editor.querySelectorAll('span[data-word]');
+  spans.forEach(span => {
+    const text = document.createTextNode(span.textContent);
+    span.parentNode.replaceChild(text, span);
+  });
+  saveCurrentSession();
+  renderSidebar();
+}
+
+function renderSidebar() {
+  const editor = document.getElementById('analyser-editor');
+  const spans = editor.querySelectorAll('span[data-word]');
   const sidebar = document.getElementById('word-sidebar');
   sidebar.innerHTML = '';
 
   const groups = { verb: [], noun: [], adverb: [], adjective: [] };
-  analysisResult.words.forEach(w => { if(groups[w.type]) groups[w.type].push(w); });
+  const uniqueWords = new Set();
+  
+  spans.forEach(span => {
+    const w = span.getAttribute('data-word');
+    const t = span.getAttribute('data-type');
+    const key = `${w}-${t}`;
+    if (!uniqueWords.has(key)) {
+      uniqueWords.add(key);
+      if (groups[t]) groups[t].push(w);
+    }
+  });
 
   const typeLabels = { verb:'Verbs', noun:'Nouns', adverb:'Adverbs', adjective:'Adjectives' };
   const typeColors = {
@@ -552,52 +525,67 @@ function renderAnalysis() {
     adverb: { bg:'#d1fae5', color:'#065f46', btnBg:'#059669' },
     adjective: { bg:'#fef3c7', color:'#92400e', btnBg:'#d97706' }
   };
+  
+  const savedVocab = getUserVocab();
 
+  let hasWords = false;
   Object.entries(groups).forEach(([type, words]) => {
     if (words.length === 0) return;
+    hasWords = true;
     const tc = typeColors[type];
     const header = document.createElement('p');
-    header.style.cssText = `font-size:0.7rem;font-weight:700;text-transform:uppercase;color:${tc.color};margin:10px 0 6px;`;
+    header.style.cssText = `font-size:0.7rem;font-weight:700;text-transform:uppercase;color:${tc.color};margin:16px 0 8px;`;
     header.textContent = typeLabels[type];
     sidebar.appendChild(header);
 
     words.forEach(w => {
-      const pill = document.createElement('div');
-      pill.className = 'word-pill';
-      pill.style.background = tc.bg;
-      pill.id = 'pill-' + sanitizeId(w.french);
-      const deckType = type === 'verb' ? 'Verbs' : type === 'noun' ? 'Common Nouns' : type === 'adverb' ? 'Adverbs' : 'Adjectives';
-
-      pill.innerHTML = `
-        <div style="flex:1;min-width:0;">
-          <div class="fr" style="color:${tc.color};white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${escapeHtml(w.french)}</div>
-          <div class="en" style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${escapeHtml(w.english)}</div>
-        </div>
-        <button class="add-btn" style="background:${tc.btnBg};color:white;" onclick="addWordFromSidebar(this,'${escapeAttr(w.french)}','${escapeAttr(w.english)}','${escapeAttr(w.lemma)}','${escapeAttr(deckType)}')">+</button>
-      `;
-      sidebar.appendChild(pill);
+      const alreadySaved = savedVocab.find(sv => sv.french === w);
+      
+      const box = document.createElement('div');
+      box.style.cssText = `background:${tc.bg};border:1px solid ${tc.color}40;border-radius:8px;padding:10px;margin-bottom:8px;font-size:0.85rem;`;
+      
+      if (alreadySaved) {
+        box.innerHTML = `
+          <div style="display:flex;justify-content:space-between;align-items:center;">
+            <div style="color:${tc.color};font-weight:700;">${escapeHtml(w)}</div>
+            <div style="font-size:0.75rem;color:#4b5563;background:white;padding:2px 6px;border-radius:4px;">Saved ✓</div>
+          </div>
+          <div style="color:#374151;margin-top:4px;">${escapeHtml(alreadySaved.english)}</div>
+        `;
+      } else {
+        const deckType = type === 'verb' ? 'Verbs' : type === 'noun' ? 'Common Nouns' : type === 'adverb' ? 'Adverbs' : 'Adjectives';
+        box.innerHTML = `
+          <div style="color:${tc.color};font-weight:700;margin-bottom:6px;">${escapeHtml(w)}</div>
+          <div style="display:flex;gap:6px;">
+            <input type="text" id="def-${sanitizeId(w)}" placeholder="English meaning..." class="flex-1 px-2 py-1.5 rounded-md border-none outline-none text-xs" style="background:white;">
+            <button class="add-btn" style="background:${tc.btnBg};color:white;padding:0 12px;border-radius:6px;font-weight:600;font-size:0.75rem;" onclick="addDefinitionFromSidebar(this, '${escapeAttr(w)}', '${escapeAttr(deckType)}', 'def-${sanitizeId(w)}')">Save</button>
+          </div>
+        `;
+      }
+      sidebar.appendChild(box);
     });
   });
-  document.getElementById('analyser-results').classList.remove('hidden');
+  
+  if (!hasWords) {
+    sidebar.innerHTML = '<p class="text-sm text-gray-400 text-center mt-8">Highlight a word to start defining it.</p>';
+  }
 }
 
-function sidebarHighlight(word) {
-  document.querySelectorAll('.word-pill').forEach(p => p.style.outline = '');
-  const pill = document.getElementById('pill-' + sanitizeId(word));
-  if (pill) { pill.style.outline = '2px solid #4f46e5'; pill.scrollIntoView({ behavior: 'smooth', block: 'nearest' }); }
-}
-
-async function addWordFromSidebar(btn, french, english, lemma, deckType) {
-  const toAdd = { french: french, english: english, lemma: lemma, type: deckType };
+async function addDefinitionFromSidebar(btn, french, deckType, inputId) {
+  const english = document.getElementById(inputId).value.trim();
+  if (!english) return alert("Please enter the English translation.");
+  
+  const toAdd = { french: french, english: english, lemma: french, type: deckType };
   if (addWordToVocab(toAdd)) {
     btn.textContent = '...';
     btn.disabled = true;
     await saveWordToSupabase(toAdd);
-    btn.textContent = '✓';
+    renderSidebar(); // Re-render to show as saved
   }
 }
 
-function clearAnalyser() { document.getElementById('analyser-input').value = ''; document.getElementById('analyser-results').classList.add('hidden'); analysisResult = null; }
+// Initialize sessions on load
+loadSessionsFromStorage();
 function showToast(msg) {
   const existing = document.getElementById('toast'); if (existing) existing.remove();
   const t = document.createElement('div'); t.id = 'toast'; t.textContent = msg;
