@@ -445,6 +445,23 @@ async function saveWordToSupabase(wordObj) {
   else showToast(`"${wordObj.french}" synced to cloud!`);
 }
 
+async function deleteWordFromSupabase(french) {
+  if (!confirm(`Are you sure you want to delete "${french}" from your vocabulary?`)) return;
+  
+  // 1. Remove from local browser memory
+  let current = getUserVocab();
+  current = current.filter(w => w.french.toLowerCase() !== french.toLowerCase());
+  saveUserVocab(current);
+  
+  // 2. Refresh the sidebar UI instantly
+  renderSidebar();
+  
+  // 3. Delete from Supabase cloud
+  const { error } = await supabaseClient.from('user_vocabulary').delete().eq('french', french);
+  if (error) console.error("Error deleting word:", error);
+  else showToast(`"${french}" removed!`);
+}
+
 function addWordToVocab(entry) {
   const current = getUserVocab();
   const exists = current.some(w => w.french.toLowerCase() === entry.french.toLowerCase());
@@ -731,7 +748,10 @@ function renderSidebar() {
         box.innerHTML = `
           <div style="display:flex;justify-content:space-between;align-items:center;">
             <div style="color:${tc.color};font-weight:700;">${escapeHtml(w)}</div>
-            <div style="font-size:0.75rem;color:#4b5563;background:white;padding:2px 6px;border-radius:4px;">Saved ✓</div>
+            <div style="display:flex;gap:6px;align-items:center;">
+              <button onclick="deleteWordFromSupabase('${escapeAttr(w)}')" style="color:#ef4444;font-size:1.1rem;line-height:1;padding:0 4px;cursor:pointer;border:none;background:transparent;" title="Delete word">&times;</button>
+              <div style="font-size:0.75rem;color:#4b5563;background:white;padding:2px 6px;border-radius:4px;">Saved ✓</div>
+            </div>
           </div>
           <div style="color:#374151;margin-top:4px;">${escapeHtml(alreadySaved.english)}</div>
         `;
