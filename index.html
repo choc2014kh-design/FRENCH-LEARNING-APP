@@ -374,9 +374,47 @@ const PRONOUNS = [
 
 const LESSONS = [
   {
-    id:1, title:'1st Group Verbs — Present Tense',
-    description:'Regular -er verb conjugation rules.',
-    content:`<h3>Le Présent de l'Indicatif</h3><p>The largest group of French verbs ends in <strong>-er</strong>.</p>`
+    id:1, title:'1st Group Verbs (Present Tense)',
+    description:'Learn how to conjugate regular verbs ending in -er.',
+    content:`<h3 class="text-2xl text-violet-700 mb-4">Le Présent de l'Indicatif</h3>
+             <p>In French, the largest group of verbs ends in <strong>-er</strong>. We call these the "First Group". They are (mostly) regular, which makes them easy to learn!</p>
+             <h3>The Rule</h3>
+             <p>To conjugate an -er verb, you simply remove the <strong>-er</strong> and add these endings:</p>
+             <div class="grid grid-cols-2 gap-4 bg-violet-50 p-4 rounded-lg mt-4 border border-violet-100">
+                 <div class="flex justify-between border-b border-violet-200 pb-1"><span>Je</span> <span class="font-bold text-violet-700">-e</span></div>
+                 <div class="flex justify-between border-b border-violet-200 pb-1"><span>Nous</span> <span class="font-bold text-violet-700">-ons</span></div>
+                 <div class="flex justify-between border-b border-violet-200 pb-1"><span>Tu</span> <span class="font-bold text-violet-700">-es</span></div>
+                 <div class="flex justify-between border-b border-violet-200 pb-1"><span>Vous</span> <span class="font-bold text-violet-700">-ez</span></div>
+                 <div class="flex justify-between border-b border-violet-200 pb-1"><span>Il/Elle</span> <span class="font-bold text-violet-700">-e</span></div>
+                 <div class="flex justify-between border-b border-violet-200 pb-1"><span>Ils/Elles</span> <span class="font-bold text-violet-700">-ent</span></div>
+             </div>
+             <div class="p-4 bg-amber-50 border-l-4 border-amber-400 text-sm mt-6 space-y-3">
+                 <p><strong>🚨 Major Exception:</strong> The verb <strong>Aller</strong> (to go) is IRREGULAR.</p>
+             </div>`
+  },
+  {
+    id: 2, title: "Common Irregular Verbs",
+    description: "Master the big four: Être, Avoir, Aller, Faire.",
+    content: `<h3 class="text-2xl text-violet-700 mb-4">The Big Four</h3>
+              <p>Memorize these by heart:</p>
+              <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mt-6">
+                  <div class="bg-blue-50 p-4 rounded-xl border border-blue-100"><h4 class="font-bold text-blue-800">Être (To be)</h4><p class="text-sm">Je suis, Tu es, Il est, Nous sommes, Vous êtes, Ils sont</p></div>
+                  <div class="bg-green-50 p-4 rounded-xl border border-green-100"><h4 class="font-bold text-green-800">Avoir (To have)</h4><p class="text-sm">J'ai, Tu as, Il a, Nous avons, Vous avez, Ils ont</p></div>
+                  <div class="bg-amber-50 p-4 rounded-xl border border-amber-100"><h4 class="font-bold text-amber-800">Aller (To go)</h4><p class="text-sm">Je vais, Tu vas, Il va, Nous allons, Vous allez, Ils vont</p></div>
+                  <div class="bg-rose-50 p-4 rounded-xl border border-rose-100"><h4 class="font-bold text-rose-800">Faire (To do)</h4><p class="text-sm">Je fais, Tu fais, Il fait, Nous faisons, Vous faites, Ils font</p></div>
+              </div>`
+  },
+  {
+    id: 3, title: "Top 100 Common Nouns",
+    description: "The most frequently used words in French.",
+    content: `<h3 class="text-2xl text-violet-700 mb-4">Most Common Nouns</h3>
+              <p>Mastering these nouns allows you to understand a huge part of everyday conversation. Here is a selection to practice in the "Common Nouns" module:</p>
+              <div class="word-cols text-sm space-y-1 mt-4 bg-gray-50 p-6 rounded-lg">
+                  <p>Le temps (Time)</p><p>L'année (Year)</p><p>Les gens (People)</p><p>La vie (Life)</p>
+                  <p>Le jour (Day)</p><p>L'homme (Man)</p><p>La femme (Woman)</p><p>L'enfant (Child)</p>
+                  <p>Le monde (World)</p><p>La maison (House)</p><p>L'école (School)</p><p>Le travail (Work)</p>
+                  <p>La main (Hand)</p><p>L'œil (Eye)</p><p>La chose (Thing)</p><p>Le pays (Country)</p>
+              </div>`
   }
 ];
 
@@ -442,13 +480,85 @@ function getSmartDeck(filterFn, size) {
   weighted.sort((a, b) => a.sortKey - b.sortKey); return weighted.slice(0, size).map(x => x.word);
 }
 
+function createConjugation(verbObj, pronounIndex) {
+  const p = PRONOUNS[pronounIndex];
+  const englishFront = `${p.en} ${verbObj.english.replace('To ', '')}`;
+  
+  const irregulars = {
+      'Être': ['suis', 'es', 'est', 'sommes', 'êtes', 'sont'],
+      'Avoir': ['ai', 'as', 'a', 'avons', 'avez', 'ont'],
+      'Aller': ['vais', 'vas', 'va', 'allons', 'allez', 'vont'],
+      'Faire': ['fais', 'fais', 'fait', 'faisons', 'faites', 'font']
+  };
+
+  if (irregulars[verbObj.french]) {
+      const conjugatedForm = irregulars[verbObj.french][pronounIndex];
+      let frenchPronoun = p.fr;
+      if (p.fr === 'Je' && ['a', 'e', 'i', 'o', 'u', 'y', 'é', 'è'].includes(conjugatedForm[0])) {
+           frenchPronoun = "J'";
+      }
+      const separator = frenchPronoun.endsWith("'") ? "" : " ";
+      return { english: englishFront, french: `${frenchPronoun}${separator}${conjugatedForm}` };
+  }
+
+  // Regular
+  const root = verbObj.french.toLowerCase().replace('er', '');
+  let frenchPronoun = p.fr;
+  let frenchStem = root;
+  let frenchSuffix = p.suffix;
+  const vowels = ['a', 'e', 'i', 'o', 'u', 'y', 'é', 'è'];
+  if (p.fr === 'Je' && vowels.includes(verbObj.french[0].toLowerCase())) frenchPronoun = "J'";
+  if (verbObj.french === 'Manger' && p.fr === 'Nous') { frenchStem = 'mange'; frenchSuffix = 'ons'; }
+  if (['Préférer', 'Espérer'].includes(verbObj.french)) {
+      if ([0, 1, 2, 5].includes(pronounIndex)) {
+          const lastEIndex = frenchStem.lastIndexOf('é');
+          if (lastEIndex !== -1) frenchStem = frenchStem.substring(0, lastEIndex) + 'è' + frenchStem.substring(lastEIndex + 1);
+      }
+  }
+  const separator = frenchPronoun.endsWith("'") ? "" : " ";
+  const frenchBack = `${frenchPronoun}${separator}${frenchStem}${frenchSuffix}`;
+  return { english: englishFront, french: frenchBack };
+}
+
 function startModule(type) {
   currentModuleType = type; goTo('quiz');
   document.getElementById('complete-msg').classList.add('hidden');
   document.getElementById('complete-msg').style.display = 'none';
-  if (type === 'vocab') currentDeck = getSmartDeck(w => w.type === 'Verbs' || w.type === 'Irregular Verbs', 20);
-  else if (type === 'nouns') currentDeck = getSmartDeck(w => w.type === 'Common Nouns', 20);
-  shuffle(currentDeck); initialDeckSize = currentDeck.length; loadNextCard();
+  const title = document.getElementById('q-title');
+  
+  if (type === 'vocab') {
+    title.textContent = "Vocabulary Flashcards";
+    currentDeck = getSmartDeck(w => w.type === 'Verbs' || w.type === 'Irregular Verbs', 20);
+    shuffle(currentDeck);
+  }
+  else if (type === 'nouns') {
+    title.textContent = "Common Nouns";
+    currentDeck = getSmartDeck(w => w.type === 'Common Nouns', 20);
+    shuffle(currentDeck);
+  }
+  else if (type === 'conjugation') {
+    title.textContent = "Conjugation Practice";
+    currentDeck = [];
+    const allPossibilities = [];
+    const verbsOnly = getAllVocab().filter(w => w.type === 'Verbs' || w.type === 'Irregular Verbs');
+    verbsOnly.forEach(verb => {
+        PRONOUNS.forEach((_, index) => {
+            allPossibilities.push(createConjugation(verb, index));
+        });
+    });
+    shuffle(allPossibilities);
+    currentDeck = allPossibilities.slice(0, 15);
+  }
+  else if (type === 'my-vocab') {
+    title.textContent = "My Custom Words";
+    currentDeck = getSmartDeck(w => w.type !== 'Verbs' && w.type !== 'Irregular Verbs' && w.type !== 'Common Nouns', 20);
+    // fallback if no custom types
+    if (currentDeck.length === 0) currentDeck = getSmartDeck(w => true, 20);
+    shuffle(currentDeck);
+  }
+  
+  initialDeckSize = currentDeck.length; 
+  loadNextCard();
 }
 
 function loadNextCard() {
